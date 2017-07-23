@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<head>
+	<meta charset="utf-8">
+  
+  	<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.css" rel='stylesheet'>
+	<link href="css/style.css" rel='stylesheet'>
+  <!-- Roboto & Asar CSS -->
+	<link href='https://fonts.googleapis.com/css?family=Roboto' rel='stylesheet' type='text/css'>
+	<link href="https://fonts.googleapis.com/css?family=Asar" rel="stylesheet">
+	
+	
+</head>
+<body>
+ 
+
+
+<button type="button" class="btn btn-primary" id="bubblebar">Bar Chart</button>   
+<div id="chart"></div>
+
+   
+   
+   <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.5/d3.min.js"></script>
+	
+	<!-- D3.geo -->
+    <script src="https://d3js.org/d3.geo.projection.v0.min.js"></script>
+    
+	<!-- jQuery -->
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+
+	<script src="data/countries2.js"></script>
+<script>
+
+
+window.onload = function(){
+
+
+
+	// set up svg and scrolling
+    var width = window.innerWidth / 2;
+    var height = window.innerHeight;
+    
+    var svg = d3.select("#chart").append("svg")
+    	.attr('width', width)
+    	.attr('height', height);
+    	
+	var bubbleMapState = 'map'; // map or bar
+
+	
+
+	var projection = d3.geo.mercator()
+	  .scale(150)
+	  .center([20, 40])
+	  .translate([width / 2, height / 2]);
+
+	 var path= d3.geo.path()
+	  .projection(projection);
+
+	 var features = countries2.features;   
+ 
+	 d3.csv("data/sum_by_country.csv", function(error, data) {
+		
+			data.sort(function(a,b){
+					return a.value - b.value;
+			  });
+		  
+			var myfeatures= joinData(features, data, ['value']);
+		
+		
+			var worldMap = svg.append('g');
+			var world = worldMap.selectAll(".worldcountries")
+					.data(myfeatures)
+					.enter()
+					.append("path")
+					.attr("class", function(d){
+						return "World " + d.properties.name+" worldcountries";
+					})
+					.attr("d", path)
+					.style("fill", "#ddd")
+				  .style("stroke", "white")
+				  .style("stroke-width", "1");
+			  
+			var max = d3.max(data, function(d) { return d.value; })
+			var min = d3.min(data, function(d) { return d.value; })
+		
+			var radius =  d3.scale.sqrt()
+					.domain([0,1097805])
+					.range([3, 20]);
+				
+			var newFeatures = [];
+			myfeatures.forEach(function(d){
+				if(d.properties.hasOwnProperty("value")){
+					console.log(d.properties.name);
+					newFeatures.push(d);
+				}
+			
+			});
+		
+		
+			newFeatures.sort(function(a,b){
+					return b.properties.value - a.properties.value;
+			  });
+
+
+			var bubbles = svg.append("g").classed("bubbleG","true");
+		
+			bubbles.selectAll("circle")
+				.data(newFeatures)
+				.enter().append("circle")
+				.attr("class", "bubble")
+				.attr("transform", function(d) { 
+					return "translate(" + path.centroid(d) + ")"; 
+				})
+				.attr("r", function(d){
+					return radius(d.properties.value);
+				})
+				.attr("fill","#2166ac")
+				.attr("stroke","white")
+				.attr("id", function(d){
+					return "circle "+d.properties.name;
+				});
+			
+
+				 $('#bubblebar').click(function(){
+					mapBarTransition(newFeatures,bubbles)
+				});
+		
+		});
+
+	
+
+
+	// button onclick
+	function mapBarTransition(data,bubbles){
+
+			if(bubbleMapState=='map'){
+				bubbleMapState=='bar';
+			}else{
+				bubbleMapState=='map';
+			}	
+	
+			var margin = {top:20, right:20, bottom:120, left:80},
+			chartW = width - margin.left - margin.right,
+			chartH = height - margin.top - margin.bottom;
+		
+			var x = d3.scale.ordinal()
+					.domain(data.map(function(d) { return d.properties.name; }))
+					.rangeRoundBands([0, chartW], .4);
+			var y = d3.scale.linear()
+					.domain([0,1097805])
+					.nice()
+					.range([chartH,0]);
+
+			var xAxis = d3.svg.axis()
+						.scale(x)
+						.orient("bottom");
+
+			var yAxis = d3.svg.axis()
+						.scale(y)
+						.ticks(8)
+						.orient("left");
+			
+			var barW = width / data.length;
+			 
+			 
+					bubbles.append("g").classed("bubblebar-chart-group", true);
+					bubbles.append("g").classed("bubblebar-x-axis-group axis", true);
+					bubbles.append("g").classed("bubblebar-y-axis-group axis", true);
+
+				bubbles.transition().duration(1000).attr({transform: "translate(" + margin.left + "," + margin.top + ")"});
+
+				bubbles.select(".bubblebar-x-axis-group.axis")
+					.attr({transform: "translate(0," + (chartH) + ")"})
+					.call(xAxis)
+					.selectAll("text")	
+					.style("text-anchor", "end")
+					.attr("dx", "-.8em")
+					.attr("dy", ".15em")
+					.attr("transform", function(d) {
+						return "rotate(-65)" 
+						});
+
+
+				bubbles.select(".bubblebar-y-axis-group.axis")
+					.transition()
+					.call(yAxis);
+			
+			
+				barW = x.rangeBand();
+
+				var bars = bubbles.select(".bubblebar-chart-group")
+						.selectAll(".bubble")
+						.data(data);
+					
+				bars.enter().append("rect")
+					.classed("bubble", true)
+					.attr("x", function(d) { return x(d.properties.name); })
+					.attr("y", function(d) { return y(d.properties.value); })
+					.attr("width", barW)
+					.attr("height", function(d) { return chartH - y(d.properties.value); })
+					.attr("fill","#2166ac");
+			   
+			
+				bars.transition()
+					.attr("x", function(d) { return x(d.properties.name); })
+					.attr("y", function(d) { return y(d.properties.value); })
+					.attr("width", barW)
+					.attr("height", function(d) { return chartH - y(d.properties.value); });
+
+			
+				bars.exit().transition().style({opacity: 0}).remove();
+
+
+	}
+
+	function joinData(thisFeatures, thisData, DataArray){
+
+
+		//loop through csv to assign each set of csv attribute values to geojson counties
+		for (var i=0; i<thisData.length; i++){
+		  var csvCountry = thisData[i]; //the current county
+		  var csvKey = csvCountry.Country; //the CSV primary key
+
+		  //loop through geojson regions to find correct counties
+		  for (var a=0; a<thisFeatures.length; a++){
+
+			  var geojsonProps = thisFeatures[a].properties; //the current region geojson properties
+			  var geojsonKey = geojsonProps.name; //the geojson primary key
+
+			  //where primary keys match, transfer csv data to geojson properties object
+			  if (geojsonKey == csvKey){
+				  //assign all attributes and values
+				  DataArray.forEach(function(attr){
+					  var val = parseFloat(csvCountry[attr]); //get csv attribute value
+					  geojsonProps[attr] = val; //assign attribute and value to geojson properties
+				  });
+			  };
+		  };
+		};
+		return thisFeatures;
+	};
+}
+
+  </script>
+</body>
