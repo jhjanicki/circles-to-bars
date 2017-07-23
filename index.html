@@ -79,9 +79,6 @@ window.onload = function(){
 				  .style("stroke", "white")
 				  .style("stroke-width", "1");
 			  
-			var max = d3.max(data, function(d) { return d.value; })
-			var min = d3.min(data, function(d) { return d.value; })
-		
 			var radius =  d3.scale.sqrt()
 					.domain([0,1097805])
 					.range([3, 20]);
